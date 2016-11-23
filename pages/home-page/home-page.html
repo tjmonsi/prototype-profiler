@@ -81,6 +81,14 @@
         uploading: {
           type: Number,
           value: 0
+        },
+        analyzedData: {
+          type: Object,
+          value: null
+        },
+        currentKey: {
+          type: String,
+          value: null
         }
       },
       
@@ -147,9 +155,9 @@
           
           if (firebase) {
             this.$$('#uploading-dialog').open();
-            var key = firebase.database().ref('/images').push().key;
+            this.currentKey = firebase.database().ref('/images').push().key;
             
-            this._task = firebase.storage().ref(`/images/${key}`).putString(dataURL, 'data_url');
+            this._task = firebase.storage().ref(`/images/${this.currentKey}`).putString(dataURL, 'data_url');
             
             this._task.on('state_changed', (snapshot) => {
               var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -172,12 +180,16 @@
               // Handle successful uploads on complete
               // For instance, get the download URL: https://firebasestorage.googleapis.com/...
               var downloadURL = this._task.snapshot.downloadURL;
-              firebase.database().ref(`/images/${key}`).set({
+              firebase.database().ref(`/images/${this.currentKey}`).set({
                 url: downloadURL,
                 uid: this.user.uid,
                 email: this.user.email
               });
               this.$$('#uploading-dialog').close();
+
+              firebase.database().ref(`process_images/${this.currentKey}`).on('value', (snapshot) => {
+                console.log(snapshot.val());
+              });
             })
           }
         }
