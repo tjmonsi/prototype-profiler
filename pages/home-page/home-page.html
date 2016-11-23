@@ -146,7 +146,8 @@
             
             console.log(navigator.mediaDevices.getSupportedConstraints());
               // Not adding `{ audio: true }` since we only want video now
-            navigator.mediaDevices.getUserMedia({ video: true, facingMode: { exact: this.facingMode } }).then((stream) => {
+              // console.log(navigator.mediaDevices.enumerateDevices())
+            navigator.mediaDevices.getUserMedia({ video: {facingMode: {exact: this.facingMode} }}).then((stream) => {
               video.src = window.URL.createObjectURL(stream);
               video.play();
               // setTimeout(function() {console.log(video.videoHeight)}, 1000)
@@ -168,7 +169,7 @@
               
               console.log(navigator.mediaDevices.getSupportedConstraints());
                 // Not adding `{ audio: true }` since we only want video now
-              navigator.mediaDevices.getUserMedia({ video: true, facingMode: { exact: "environment" } }).then((stream) => {
+              navigator.mediaDevices.getUserMedia({ video:  { facingMode: { exact: "environment" } } }).then((stream) => {
                 video.src = window.URL.createObjectURL(stream);
                 video.play();
                 // setTimeout(function() {console.log(video.videoHeight)}, 1000)
@@ -253,13 +254,16 @@
 
               firebase.database().ref(`processed_images/${this.currentKey}`).on('value', (snapshot) => {
                 console.log(snapshot.val());
-                this.$$('#uploading-dialog').close();
+                
                 this.analyzedData = snapshot.val();
 
                 // draw face if there's any'
                 if (!this.analyzedData) {
                   return
                 }
+                
+                this.$$('#uploading-dialog').close();
+                
                 var faces = this.analyzedData.faces;
 
                 if (faces) {
