@@ -172,7 +172,11 @@
               // Handle successful uploads on complete
               // For instance, get the download URL: https://firebasestorage.googleapis.com/...
               var downloadURL = this._task.snapshot.downloadURL;
-              firebase.database().ref(`/images/${key}`).set(downloadURL);
+              firebase.database().ref(`/images/${key}`).set({
+                url: downloadURL,
+                uid: this.user.uid,
+                email: this.user.email
+              });
               this.$$('#uploading-dialog').close();
             })
           }
