@@ -31,7 +31,23 @@ canvas {
   canvas.snapped {
     display: block;
     top: 0;
-    left: 0; }
+    left: 0;
+    z-index: 100; }
+
+#info-material {
+  position: absolute;
+  top: 20px;
+  right: 10px;
+  width: 300px;
+  padding: 10px;
+  background-color: white;
+  z-index: 2000; }
+  #info-material h1 {
+    font-size: 20px; }
+  @media (max-width: 479px) {
+    #info-material {
+      position: relative;
+      width: 100%; } }
 
 </style>
 </template>

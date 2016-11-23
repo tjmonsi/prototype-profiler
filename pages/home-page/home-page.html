@@ -38,7 +38,8 @@
       <video id="video" autoplay></video><br/>
       <div class="snap-area horizontal layout">
         <div class="flex"></div>
-        <paper-button id="snap" raised on-tap="snap">[[snappedText]]</paper-button><br/>  
+        <paper-button id="snap" raised on-tap="snap">[[snappedText]]</paper-button>
+        <!--<paper-button id="snap" raised on-tap="changeCamera">Change Camera</paper-button> -->
         <div class="flex"></div>
       </div>
       <canvas id="canvas"></canvas>
@@ -49,6 +50,35 @@
       <span>Uploading and Analyzing Picture</span>
       <paper-progress value="[[uploading]]" class="transiting"></paper-progress>
     </paper-dialog>
+
+    <template is="dom-if" if="[[analyzedData]]">
+      <paper-material id="info-material">
+        <h1>Things found</h1>
+        <ul>
+          <template is="dom-repeat" items="[[analyzedData.labels]]">
+            <li>[[item.desc]] - Confidence level: [[item.score]] </li>
+          </template>
+        </ul>
+        <template is="dom-repeat" items="[[analyzedData.faces]]">
+          <h1>Face [[index]]</h1>
+          <template is="dom-if" if="[[item.happy]]">
+            The person is happy.
+          </template>
+          <template is="dom-if" if="[[item.sad]]">
+            The person is sad.
+          </template>
+          <template is="dom-if" if="[[item.mad]]">
+            The person is mad.
+          </template>
+          <template is="dom-if" if="[[item.surprised]]">
+            The person is surprised.
+          </template>
+          <template is="dom-if" if="[[item.hat]]">
+            The person has a hat.
+          </template>
+        </template>
+      </paper-material>
+    </template>
     
     <paper-toast id="toast"></paper-toast>
   </template>
@@ -89,6 +119,10 @@
         currentKey: {
           type: String,
           value: null
+        },
+        facingMode: {
+          type: String,
+          value: "environment"
         }
       },
       
@@ -97,6 +131,33 @@
       ],
       
       _task: null,
+
+      changeCamera: function() {
+        Polymer.RenderStatus.afterNextRender(this, () => {
+          var video = this.$$('#video');
+              // Get access to the camera!
+          if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+
+            if (this.facingMode === "environment") {
+              this.facingMode = "user"
+            } else {
+              this.facingMode = "environment"
+            }
+            
+            console.log(navigator.mediaDevices.getSupportedConstraints());
+              // Not adding `{ audio: true }` since we only want video now
+            navigator.mediaDevices.getUserMedia({ video: true, facingMode: { exact: this.facingMode } }).then((stream) => {
+              video.src = window.URL.createObjectURL(stream);
+              video.play();
+              // setTimeout(function() {console.log(video.videoHeight)}, 1000)
+            }).catch((error) => {
+              console.error(error)
+              this.$.toast.show(error.message, 5000);
+            });
+            this.resize();
+          }
+        })
+      },
       
       _userReady: function(uid) {
         if (uid) {
@@ -107,10 +168,13 @@
               
               console.log(navigator.mediaDevices.getSupportedConstraints());
                 // Not adding `{ audio: true }` since we only want video now
-              navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+              navigator.mediaDevices.getUserMedia({ video: true, facingMode: { exact: "environment" } }).then((stream) => {
                 video.src = window.URL.createObjectURL(stream);
                 video.play();
                 // setTimeout(function() {console.log(video.videoHeight)}, 1000)
+              }).catch((error) => {
+                console.error(error)
+                this.$.toast.show(error.message, 5000);
               });
             }
             this.resize();
@@ -150,7 +214,7 @@
           trueContext.clearRect(0, 0, video.videoWidth, video.videoHeight);
           trueContext.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
           
-          var dataURL = trueCanvas.toDataURL();
+          var dataURL = canvas.toDataURL();
           this.$.toast.show('Uploading and Analyzing', 3000);
           
           if (firebase) {
@@ -185,21 +249,69 @@
                 uid: this.user.uid,
                 email: this.user.email
               });
-              this.$$('#uploading-dialog').close();
+              
 
-              firebase.database().ref(`process_images/${this.currentKey}`).on('value', (snapshot) => {
+              firebase.database().ref(`processed_images/${this.currentKey}`).on('value', (snapshot) => {
                 console.log(snapshot.val());
+                this.$$('#uploading-dialog').close();
+                this.analyzedData = snapshot.val();
+
+                // draw face if there's any'
+                if (!this.analyzedData) {
+                  return
+                }
+                var faces = this.analyzedData.faces;
+
+                if (faces) {
+                  
+                  var offsetWidth = height2 > this.height ? (this.width - width2) / 2 : 0;
+                  var offsetHeight = height2 > this.height ? 0 : (this.height - height2) / 2;
+
+                  context.strokeStyle = 'rgba(0,255,0,0.8)';
+                  context.lineWidth = '5';
+                  var index = 0;
+                  faces.forEach((face) => {
+                    context.beginPath();
+
+                    //  newx   boundsx
+                    //  ---- = -------
+                    //  newy   boundsy
+
+                    face.bounds.face.forEach( (bounds) => {
+                      var x = bounds.x;
+                      var y = bounds.y;
+                      // var x = ((bounds.x * height2 > this.height ? this.height : height2) / bounds.y) + offsetWidth;
+                      // var y = ((bounds.y * height2 > this.height ? width2 : this.width) / bounds.x) + offsetHeight;
+                      console.log(bounds.x, bounds.y, x, y);
+                      context.lineTo(x, y);
+                    });
+                    var x0 = face.bounds.face[0].x;
+                    var y0 = face.bounds.face[0].y;
+                    // var x0 = ((face.bounds.face[0].x * height2 > this.height ? this.height : height2) / face.bounds.face[0].y) + offsetWidth;
+                    // var y0 = ((face.bounds.face[0].y * height2 > this.height ? width2 : this.width) / face.bounds.face[0].x) + offsetHeight;
+                    context.lineTo(x0, y0);
+                    context.stroke();
+                    context.fillText('Face ' + index, x0, y0)
+                    index++;
+                  });
+                  
+                }
               });
             })
           }
+        } else {
+          this.analyzedData = null;
+          firebase.database().ref(`processed_images/${this.currentKey}`).off('value');
         }
         
         this.snapped = !this.snapped;
         
         if (this.snapped) {
           this.snappedText = 'Take another Picture';
+          
         } else {
           this.snappedText = 'Analyze Picture';
+          
         }
         
         canvas.classList.toggle('snapped');
