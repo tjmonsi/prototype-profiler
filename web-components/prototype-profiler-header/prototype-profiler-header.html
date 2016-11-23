@@ -1,0 +1,76 @@
+<!-- Polymer dependencies -->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+
+<link rel="import" href="../../bower_components/app-layout/app-header/app-header.html">
+<link rel="import" href="../../bower_components/app-layout/app-toolbar/app-toolbar.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../../bower_components/polymerfire/firebase-auth.html">
+<!--<link rel="import" href="../prototype-profiler-icons/prototype-profiler-icons.html">-->
+
+<!-- Style dependency -->
+<link rel="import" href="prototype-profiler-header-style.html">
+
+<dom-module id="prototype-profiler-header">
+  <template>
+    <style is="custom-style" include="prototype-profiler-header-style">
+      :host {
+        display: block;
+      }
+    </style>
+
+    <firebase-auth id="auth" user="{{user}}" provider="google">
+
+    <!-- then the app-header -->
+    <app-header>
+      <app-toolbar>
+        <!--<paper-icon-button-->
+        <!--  icon="default:menu"-->
+        <!--  on-tap="_toggleDrawer">-->
+        <!--</paper-icon-button>-->
+        <div main-title>Prototype-Profiler</div>
+        <template is="dom-if" if="[[!user]]">
+          <paper-button on-tap="login">
+            Login
+          </paper-button>
+        </template>
+        <template is="dom-if" if="[[user]]">
+          <paper-button on-tap="logout">
+            Logout
+          </paper-button>
+        </template>
+      </app-toolbar>
+    </app-header>
+    
+    <paper-toast id="toast"></paper-toast>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'prototype-profiler-header',
+      
+      properties: {
+        user: {
+          type: Object,
+          notify: true
+        }
+      },
+
+      login: function() {
+        this.$.auth.signInWithPopup().then((result) => {
+          this.$.toast.show(`Hello ${result.user.displayName}`)
+        });
+      },
+      
+      logout: function() {
+        this.$.auth.signOut().then(() => {
+          this.$.toast.show('Goodbye');
+        })
+      }
+
+      // _toggleDrawer: function() {
+      //   this.fire('toggle-drawer');
+      // }
+    });
+  </script>
+</dom-module>

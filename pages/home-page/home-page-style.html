@@ -1,0 +1,38 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<dom-module id="home-page-style">
+<template>
+<style>
+.full-height {
+  height: 100vh; }
+
+:host {
+  position: relative; }
+
+.snap-area {
+  width: 100%;
+  position: absolute;
+  top: 70vh;
+  z-index: 1000; }
+  .snap-area paper-button {
+    background-color: white; }
+
+#uploading-dialog {
+  padding: 10px;
+  text-align: center; }
+
+paper-progress {
+  --paper-progress-transition-duration: 0.2s;
+  --paper-progress-transition-timing-function: ease;
+  --paper-progress-transition-transition-delay: 0s; }
+
+canvas {
+  position: absolute;
+  display: none; }
+  canvas.snapped {
+    display: block;
+    top: 0;
+    left: 0; }
+
+</style>
+</template>
+</dom-module>

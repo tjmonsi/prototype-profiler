@@ -1,0 +1,242 @@
+<!-- Polymer dependencies -->
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-material/paper-material.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-toast/paper-toast.html">
+<link rel="import" href="../../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../../bower_components/neon-animation/animations/scale-up-animation.html">
+<link rel="import" href="../../bower_components/neon-animation/animations/fade-out-animation.html">
+<link rel="import" href="../../bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+
+<!-- Style dependency -->
+<link rel="import" href="home-page-style.html">
+
+<dom-module id="home-page">
+  <template>
+    <style is="custom-style" include="home-page-style iron-flex iron-flex-alignment">
+      :host {
+        display: block;
+      }
+    </style>
+
+    <template is="dom-if" if="[[!user]]">
+      <div class="full-height vertical layout">
+        <div class="flex"></div>
+        <div class="horizontal layout">
+          <div class="flex"></div>
+          <div>
+            Please Login
+          </div>
+          <div class="flex"></div>
+        </div>
+        <div class="flex"></div>
+      </div>
+    </template>
+    
+    <template is="dom-if" if="[[user]]">
+      <video id="video" autoplay></video><br/>
+      <div class="snap-area horizontal layout">
+        <div class="flex"></div>
+        <paper-button id="snap" raised on-tap="snap">[[snappedText]]</paper-button><br/>  
+        <div class="flex"></div>
+      </div>
+      <canvas id="canvas"></canvas>
+      <canvas id="true-canvas"></canvas>
+    </template>
+    
+    <paper-dialog id="uploading-dialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+      <span>Uploading and Analyzing Picture</span>
+      <paper-progress value="[[uploading]]" class="transiting"></paper-progress>
+    </paper-dialog>
+    
+    <paper-toast id="toast"></paper-toast>
+  </template>
+
+  <script>
+    Polymer({
+      is: 'home-page',
+      
+      properties: {
+        user: {
+          type: Object,
+          value: function() {
+            return null;
+          }
+        },
+        height: {
+          type: Number
+        },
+        width: {
+          type: Number
+        },
+        snapped: {
+          type: Boolean,
+          value: false
+        },
+        snappedText: {
+          type: String,
+          value: 'Analyze Picture'
+        },
+        uploading: {
+          type: Number,
+          value: 0
+        }
+      },
+      
+      observers: [
+        '_userReady(user.uid)'
+      ],
+      
+      _task: null,
+      
+      _userReady: function(uid) {
+        if (uid) {
+          Polymer.RenderStatus.afterNextRender(this, () => {
+            var video = this.$$('#video');
+              // Get access to the camera!
+            if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              
+              console.log(navigator.mediaDevices.getSupportedConstraints());
+                // Not adding `{ audio: true }` since we only want video now
+              navigator.mediaDevices.getUserMedia({ video: true }).then((stream) => {
+                video.src = window.URL.createObjectURL(stream);
+                video.play();
+                // setTimeout(function() {console.log(video.videoHeight)}, 1000)
+              });
+            }
+            this.resize();
+          });
+        }
+      },
+      
+      snap: function() {
+        var canvas = this.$$('#canvas');
+        
+        var context = canvas.getContext('2d');
+        var trueCanvas = this.$$('#true-canvas');
+        var trueContext = trueCanvas.getContext('2d');
+        var video = this.$$('#video');
+        
+        if (this.$$('#uploading-dialog').opened) {
+          this._task.cancel();
+          this.$$('#uploading-dialog').close();
+        }
+        
+        if (!this.snapped) {
+          // x = x2    x2 = (x * y2) / y 
+          // -   --
+          // y   y2    y2 = (x2 * y) / x
+          
+          var width2 = (video.videoWidth * this.height) / video.videoHeight;
+          var height2 = (video.videoHeight * this.width) / video.videoWidth;
+          
+          if (height2 > this.height) {
+            context.drawImage(video, (this.width - width2) / 2, 0, width2, this.height);    
+          } else {
+            context.drawImage(video, 0, (this.height - height2) / 2, this.width, height2);
+          }
+          
+          trueCanvas.width = video.videoWidth;
+          trueCanvas.height = video.videoHeight;
+          trueContext.clearRect(0, 0, video.videoWidth, video.videoHeight);
+          trueContext.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+          
+          var dataURL = trueCanvas.toDataURL();
+          this.$.toast.show('Uploading and Analyzing', 3000);
+          
+          if (firebase) {
+            this.$$('#uploading-dialog').open();
+            var key = firebase.database().ref('/images').push().key;
+            
+            this._task = firebase.storage().ref(`/images/${key}`).putString(dataURL, 'data_url');
+            
+            this._task.on('state_changed', (snapshot) => {
+              var progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              this.uploading = progress;
+              console.log('Upload is ' + progress + '% done');
+              switch (snapshot.state) {
+                case firebase.storage.TaskState.PAUSED: // or 'paused'
+                  console.log('Upload is paused');
+                  break;
+                case firebase.storage.TaskState.RUNNING: // or 'running'
+                  console.log('Upload is running');
+                  break;
+              }
+            }, (error) => {
+              this.$$('#uploading-dialog').close();
+              console.error(error);
+              this.$.toast.show(error.message, 5000);
+              
+            }, () => {
+              // Handle successful uploads on complete
+              // For instance, get the download URL: https://firebasestorage.googleapis.com/...
+              var downloadURL = this._task.snapshot.downloadURL;
+              firebase.database().ref(`/images/${key}`).set(downloadURL);
+              this.$$('#uploading-dialog').close();
+            })
+          }
+        }
+        
+        this.snapped = !this.snapped;
+        
+        if (this.snapped) {
+          this.snappedText = 'Take another Picture';
+        } else {
+          this.snappedText = 'Analyze Picture';
+        }
+        
+        canvas.classList.toggle('snapped');
+      },
+      
+      attached: function() {
+        this.resize();
+        this._resize = this._resize || this.resize.bind(this);
+        window.addEventListener('resize', this._resize);
+      },
+      
+      detached: function() {
+        window.removeEventListener('resize', this._resize);
+      },
+      
+      resize: function() {
+        this.$$('#uploading-dialog').center();
+        var canvas = this.$$('#canvas');
+        var video = this.$$('#video');
+        var size = this.windowSize();
+        if (canvas && video) {
+          this.height = size.height - 75;
+          this.width = size.width;
+          video.height = this.height
+          video.width = this.width
+          canvas.height = this.height
+          canvas.width = this.width ;
+          
+        }
+      },
+      
+      windowSize: function() {
+        var width = 0;
+        var height = 0;
+        if (window && document) {
+          if ( typeof window.innerWidth === 'number' ) {
+            // Non-IE
+            width = window.innerWidth;
+            height = window.innerHeight;
+          } else if ( document.documentElement && (
+            document.documentElement.clientWidth ||
+            document.documentElement.clientHeight )) {
+            // IE 6+ in 'standards compliant mode'
+            width = document.documentElement.clientWidth;
+            height = document.documentElement.clientHeight;
+          } else if ( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
+            // IE 4 compatible
+            width = document.body.clientWidth;
+            height = document.body.clientHeight;
+          }
+        }
+        return {width: width, height: height};
+      }
+    });
+  </script>
+</dom-module>

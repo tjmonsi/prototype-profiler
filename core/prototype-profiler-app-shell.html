@@ -1,0 +1,133 @@
+<!-- Polymer Global dependencies -->
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/qairoe-app-layout/qairoe-app-layout.html">
+<link rel="import" href="../bower_components/qairoe-app-router/qairoe-app-router.html">
+<link rel="import" href="../bower_components/polymerfire/firebase-app-script.html">
+<link rel="import" href="../bower_components/polymerfire/firebase-auth-script.html">
+<link rel="import" href="../bower_components/polymerfire/firebase-database-script.html">
+<link rel="import" href="../bower_components/polymerfire/firebase-storage-script.html">
+<link rel="import" href="../bower_components/polymerfire/firebase-app.html">
+
+<!-- Custom Element dependencies -->
+
+<link rel="import" href="../web-components/prototype-profiler-header/prototype-profiler-header.html">
+<!--<link rel="import" href="../web-components/prototype-profiler-drawer/prototype-profiler-drawer.html">-->
+
+<!--
+`<prototype-profiler-app-shell>` is the main core element called in the index.html that
+renders the pages.
+
+Currently we have hard-coded the pages, they are lazily loaded inside the dom-module
+
+In typical use, just slap some `<prototype-profiler-app-shell>` at the top of your body:
+
+    <body>
+      <prototype-profiler-app-shell></prototype-profiler-app-shell>
+
+Wham! It's all awesome now!
+-->
+<dom-module id="prototype-profiler-app-shell">
+  <!-- Lazy loaded dependencies -->
+  <!-- LAZY LOADER STARTS HERE -->
+  <link rel="lazy-import" href="/pages/home-page/home-page.html" group="home-page">
+  <!--<link rel="lazy-import" href="/pages/view-two-page/view-two-page.html" group="view-two-page">-->
+  <!--<link rel="lazy-import" href="/pages/view-three-page/view-three-page.html" group="view-three-page">-->
+  <link rel="lazy-import" href="/pages/not-authorized-page/not-authorized-page.html" group="not-authorized-page">
+  <link rel="lazy-import" href="/pages/not-found-page/not-found-page.html" group="not-found-page">
+  <!-- LAZY LOADER ENDS HERE -->
+
+  <template>
+    <style is="custom-style">
+    </style>
+    
+    <firebase-app
+        auth-domain="[[firebaseConfig.authDomain]]"
+        database-url="[[firebaseConfig.databaseURL]]"
+        api-key="[[firebaseConfig.apiKey]]"
+        storage-bucket="[[firebaseConfig.storageBucket]]"></firebase-app>
+
+    <qairoe-app-layout scroll-progress="{{scrollProgress}}">
+
+      <prototype-profiler-header 
+        main-header 
+        scroll-progress="{{scrollProgress}}" 
+        user="{{user}}"></prototype-profiler-header>
+      <!--<prototype-profiler-drawer -->
+      <!--  main-drawer -->
+      <!--  navigation-list="[[navigationList]]" -->
+      <!--  scroll-progress="{{scrollProgress}}" -->
+      <!--  user="{{user}}"></prototype-profiler-drawer>-->
+
+      <qairoe-app-router
+          main-content
+          parent-tag-name="prototype-profiler-app-shell">
+
+        <!-- ROUTER STARTS HERE -->
+        <home-page route="/" user="[[user]]"></home-page>
+        <!--<view-two-page route="/view-two"></view-two-page>-->
+        <!--<view-three-page route="/view-three"></view-three-page>-->
+        <not-authorized-page route="not-authorized"></not-authorized-page>
+        <not-found-page route="not-found"></not-found-page>
+        <!-- ROUTER ENDS HERE -->
+
+      </qairoe-app-router>
+    </qairoe-app-layout>
+
+  </template>
+  <script>
+  
+    var config = {
+      apiKey: "AIzaSyAQPjFb26ibd7WNRt6sgPERmZ5yFXZ18dE",
+      authDomain: "prototype-profiler.firebaseapp.com",
+      databaseURL: "https://prototype-profiler.firebaseio.com",
+      storageBucket: "prototype-profiler.appspot.com"
+    };
+    /*global Polymer*/
+
+    Polymer({
+      is: 'prototype-profiler-app-shell',
+
+      properties: {
+        navigationList: {
+          type: Array,
+          readOnly: true,
+          value: function() {
+            return [
+              {
+                label: 'Home',
+                url: '/'
+              },
+              // {
+              //   label: 'View Two',
+              //   url: '/view-two'
+              // },
+              // {
+              //   label: 'View Three',
+              //   url: '/view-three'
+              // }
+            ];
+          }
+          
+        },
+        scrollProgress: {
+          type: Number
+        },
+        firebaseConfig: {
+          type: Object,
+          readOnly: true,
+          value: function() {
+            return config;
+          }
+        },
+        user: {
+          type: Object
+        }
+      },
+
+      ready: function() {
+        this.fire('prototype-profiler-app-shell-ready');
+
+      }
+    });
+  </script>
+</dom-module>
